@@ -2,6 +2,7 @@
 
 char WaveLoader::checkHeader(char* header)
 {
+	std::cout << header << std::endl;
 	if (Helpers::compareString(header, "fmt ", 4))
 	{
 		return 1;
@@ -28,9 +29,9 @@ WaveLoader::WaveLoader(std::string filePath)
 	std::ifstream waveFile(filePath, std::ios::binary);
 	if (waveFile.is_open())
 	{
-		if (validateWaveFormat(&waveFile))
+		if (validateWaveFormat())
 		{
-			parseChunks(&waveFile);
+			parseChunks();
 		}
 		waveFile.close();
 		std::cout << "Audio Format: " << ftmInfo.audioFormat
@@ -46,17 +47,17 @@ WaveLoader::WaveLoader(std::string filePath)
 	}
 }
 
-bool WaveLoader::validateWaveFormat(std::ifstream* waveFile)
+bool WaveLoader::validateWaveFormat()
 {
 	char* buffer = new char[4];
 	bool res = false;
 	//first validate if it is a riff file
-	waveFile->read((char*)buffer, sizeof(char) * 4);
+	waveFile.read((char*)buffer, sizeof(char) * 4);
 	if (Helpers::compareString(buffer, "RIFF", 4))
 	{
 		//next, validate if it is a wave file
-		waveFile->seekg(8);
-		waveFile->read((char*)buffer, sizeof(char) * 4);
+		waveFile.seekg(8);
+		waveFile.read((char*)buffer, sizeof(char) * 4);
 		if (Helpers::compareString(buffer, "WAVE", 4))
 		{
 			res = true;
@@ -66,10 +67,10 @@ bool WaveLoader::validateWaveFormat(std::ifstream* waveFile)
 	return res;
 }
 
-void WaveLoader::parseChunks(std::ifstream* waveFile)
+void WaveLoader::parseChunks()
 {
 	//only chunks we care about are the fmt chunk and data chunk
-	//ignore the rest of the chunk
+	//ignore the rest of the chunks
 	
 	char* chunkHeader = new char[4];
 	char* chunkSize = new char[4];
@@ -78,43 +79,55 @@ void WaveLoader::parseChunks(std::ifstream* waveFile)
 	char allDataGotten = 0;
 	bool getFact = false;
 
-	while (!waveFile->eof() && (allDataGotten != 3 && !getFact) )
+	while (allDataGotten != 3 || getFact)
 	{
 		//we assume the pointer is at start of the next chunk, so first get the chunk info
-		waveFile->read((char*)chunkHeader, sizeof(char) * 4);
-		waveFile->read((char*)chunkSize, sizeof(char) * 4);
-		parsedSize = *chunkSize;
-		seekPosition = waveFile->tellg();
+		waveFile.read((char*)chunkHeader, sizeof(char) * 4);
+		waveFile.read((char*)chunkSize, sizeof(char) * 4);
+		parsedSize = Helpers::littleEndianToUInt32(chunkSize);
+		seekPosition = waveFile.tellg();
 		switch (checkHeader(chunkHeader))
 		{
 			case 1: //ftm 
-				getFact = parseFtmInfo(waveFile, parsedSize);
+				getFact = parseFtmInfo(parsedSize);
 				allDataGotten |= 0b00000001;
 				break;
 			case 2: //data
 				allDataGotten |= 0b00000010;
+				waveFile.seekg(seekPosition + parsedSize);
 				break;
-			case 3: //fact
+			case 3: //fact: Is ignored for now, due to my file not having it :D
 				getFact = false;
+				waveFile.seekg(seekPosition + parsedSize);
 				break;
 			default:
-				waveFile->seekg(seekPosition + parsedSize);
 				break;
 		}
+		waveFile.read((char*)chunkSize, 1);
+		if (waveFile.eof())
+		{
+			break;
+		}
+		waveFile.seekg(seekPosition + parsedSize);
 	}
 
 	delete[] chunkSize;
 	delete[] chunkHeader;
 }
 
-bool WaveLoader::parseFtmInfo(std::ifstream* waveFile, uint32_t chunkSize)
+bool WaveLoader::parseFtmInfo(uint32_t chunkSize)
 {
-	waveFile->read((char*)&ftmInfo, sizeof(ftmInfo));
+	waveFile.read((char*)&ftmInfo, sizeof(ftmInfo));
 	if (chunkSize != sizeof(ftmInfo))
 	{
 		//we might need to parse a fact chunk later
-		waveFile->seekg((uint64_t)waveFile->tellg() + (chunkSize - sizeof(ftmInfo)));
+		waveFile.seekg((uint64_t)waveFile.tellg() + (chunkSize - sizeof(ftmInfo)));
 		return true;
 	}
 	return false;
+}
+
+void WaveLoader::readAudioData(uint32_t chunkSize)
+{
+
 }

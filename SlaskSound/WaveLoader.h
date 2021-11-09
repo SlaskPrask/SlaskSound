@@ -8,10 +8,10 @@
 class WaveLoader
 {
 private:
-	bool validateWaveFormat(std::ifstream* waveFile);
-	void parseChunks(std::ifstream* waveFile);
+	bool validateWaveFormat();
+	void parseChunks();
 	char checkHeader(char* header);
-
+	std::ifstream waveFile;
 	struct
 	{
 		uint16_t audioFormat;
@@ -24,7 +24,8 @@ private:
 
 	uint16_t audioFormat;
 	
-	bool parseFtmInfo(std::ifstream* waveFile, uint32_t chunkSize);
+	bool parseFtmInfo(uint32_t chunkSize);
+	void readAudioData(uint32_t chunkSize);
 
 public:
 	WaveLoader(std::string filePath);
