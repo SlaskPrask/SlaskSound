@@ -23,4 +23,15 @@ public:
 	{
 		return (uint32_t)(data[0] | data[1] << 8 | data[2] << 16 | data[3] << 24);
 	}
+
+	static float littleEndianToFloat(char* data)
+	{
+		float retVal;
+		char* returnFloat = (char*)&retVal;
+		returnFloat[0] = data[3];
+		returnFloat[1] = data[2];
+		returnFloat[2] = data[1];
+		returnFloat[3] = data[0];
+		return retVal;
+	}
 };

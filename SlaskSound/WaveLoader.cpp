@@ -26,7 +26,7 @@ WaveLoader::WaveLoader(std::string filePath)
 	//Start by loading the file data into a bit stream or something
 	
 	//start by opening the file
-	std::ifstream waveFile(filePath, std::ios::binary);
+	waveFile = std::ifstream(filePath, std::ios::binary);
 	if (waveFile.is_open())
 	{
 		if (validateWaveFormat())
@@ -129,5 +129,24 @@ bool WaveLoader::parseFtmInfo(uint32_t chunkSize)
 
 void WaveLoader::readAudioData(uint32_t chunkSize)
 {
+	char* sampleData = new char[chunkSize];
+	uint32_t channelOffset = chunkSize / ftmInfo.numChannels;
+	uint16_t bytesPerSample = ftmInfo.bitsPerSample / 8;
+	uint32_t byteAlign = ftmInfo.blockAlign * bytesPerSample;
+	uint16_t currentChannelOffset;
+	uint32_t channelByteIndex;
+	char* buffer = new char[bytesPerSample];
 
+	//go value by value in byte size
+	for (uint32_t i = 0; i < chunkSize; i += bytesPerSample)
+	{
+		currentChannelOffset = ((i / byteAlign) % ftmInfo.numChannels) * channelOffset;
+		waveFile.read((char*)buffer, bytesPerSample);
+		//since it's little endian we flip the reading
+		for (uint16_t j = 0; j < bytesPerSample; j++)
+		{
+
+			sampleData[currentChannelOffset + channelByteIndex + ((bytesPerSample - 1) - j)] = buffer[j];
+		}
+	}
 }
