@@ -2,7 +2,6 @@
 
 char WaveLoader::checkHeader(char* header)
 {
-	std::cout << header << std::endl;
 	if (Helpers::compareString(header, "fmt ", 4))
 	{
 		return 1;
@@ -74,6 +73,7 @@ void WaveLoader::parseChunks()
 	
 	char* chunkHeader = new char[4];
 	char* chunkSize = new char[4];
+	char* sampleData;
 	uint64_t seekPosition;
 	uint32_t parsedSize;
 	char allDataGotten = 0;
@@ -84,8 +84,11 @@ void WaveLoader::parseChunks()
 		//we assume the pointer is at start of the next chunk, so first get the chunk info
 		waveFile.read((char*)chunkHeader, sizeof(char) * 4);
 		waveFile.read((char*)chunkSize, sizeof(char) * 4);
+
 		parsedSize = Helpers::littleEndianToUInt32(chunkSize);
+
 		seekPosition = waveFile.tellg();
+		std::cout << chunkHeader << " size: " << parsedSize << std::endl;
 		switch (checkHeader(chunkHeader))
 		{
 			case 1: //ftm 
@@ -93,8 +96,8 @@ void WaveLoader::parseChunks()
 				allDataGotten |= 0b00000001;
 				break;
 			case 2: //data
+				sampleData = readAudioData(parsedSize);
 				allDataGotten |= 0b00000010;
-				waveFile.seekg(seekPosition + parsedSize);
 				break;
 			case 3: //fact: Is ignored for now, due to my file not having it :D
 				getFact = false;
@@ -113,6 +116,8 @@ void WaveLoader::parseChunks()
 
 	delete[] chunkSize;
 	delete[] chunkHeader;
+
+	//should now create an audiodata file
 }
 
 bool WaveLoader::parseFtmInfo(uint32_t chunkSize)
@@ -127,26 +132,44 @@ bool WaveLoader::parseFtmInfo(uint32_t chunkSize)
 	return false;
 }
 
-void WaveLoader::readAudioData(uint32_t chunkSize)
+char* WaveLoader::readAudioData(uint32_t chunkSize)
 {
-	char* sampleData = new char[chunkSize];
-	uint32_t channelOffset = chunkSize / ftmInfo.numChannels;
-	uint16_t bytesPerSample = ftmInfo.bitsPerSample / 8;
-	uint32_t byteAlign = ftmInfo.blockAlign * bytesPerSample;
-	uint16_t currentChannelOffset;
-	uint32_t channelByteIndex;
-	char* buffer = new char[bytesPerSample];
+	char* audioData = new char[chunkSize];
+	uint32_t sizePerChannel = chunkSize / ftmInfo.numChannels;
+	uint32_t* channelStartIndex = new uint32_t[ftmInfo.numChannels];
 
-	//go value by value in byte size
-	for (uint32_t i = 0; i < chunkSize; i += bytesPerSample)
+	for (uint16_t i = 0; i < ftmInfo.numChannels; i++)
 	{
-		currentChannelOffset = ((i / byteAlign) % ftmInfo.numChannels) * channelOffset;
-		waveFile.read((char*)buffer, bytesPerSample);
-		//since it's little endian we flip the reading
-		for (uint16_t j = 0; j < bytesPerSample; j++)
-		{
-
-			sampleData[currentChannelOffset + channelByteIndex + ((bytesPerSample - 1) - j)] = buffer[j];
-		}
+		channelStartIndex[i] = sizePerChannel * i;
 	}
+
+	uint16_t sampleSize = ftmInfo.bitsPerSample / 8;
+	uint16_t blockSize = ftmInfo.blockAlign * sampleSize;
+	uint32_t startBlockOffset = 0;
+	char* buffer = new char[sampleSize];
+	
+
+	for (uint32_t i = 0; i < chunkSize; i += blockSize * ftmInfo.numChannels)
+	{
+		//Get the data per block per channel
+		for (uint16_t j = 0; j < ftmInfo.numChannels; j++)
+		{
+			//get all of the samples per block
+			for (uint16_t k = 0; k < blockSize; k += sampleSize)
+			{
+				waveFile.read((char*)buffer, sampleSize);
+
+				//flip the read data
+				for (uint16_t l = 0; l < sampleSize; l++)
+				{
+					audioData[channelStartIndex[j] + startBlockOffset + l] = buffer[sampleSize - 1 - l];
+				}
+			}
+		}
+		startBlockOffset += blockSize;
+	}
+
+	delete[] buffer;
+	delete[] channelStartIndex;
+	return audioData;
 }

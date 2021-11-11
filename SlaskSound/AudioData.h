@@ -6,9 +6,12 @@ private:
 	uint16_t numChannels;	
 	uint32_t sampleRate;
 	uint16_t bitRate;
+	uint16_t bitSize;
 
-	void** sampleData;
+	char* sampleData;
 
 public:
+	AudioData(char* samples);
+	~AudioData();
 };
 

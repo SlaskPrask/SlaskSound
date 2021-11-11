@@ -25,7 +25,7 @@ private:
 	uint16_t audioFormat;
 	
 	bool parseFtmInfo(uint32_t chunkSize);
-	void readAudioData(uint32_t chunkSize);
+	char* readAudioData(uint32_t chunkSize);
 
 public:
 	WaveLoader(std::string filePath);
