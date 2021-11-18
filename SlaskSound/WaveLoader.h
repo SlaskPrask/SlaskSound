@@ -2,6 +2,7 @@
 #include <string>
 #include <fstream>
 #include "Helpers.h"
+#include "AudioData.h"
 
 #pragma once
 
@@ -9,7 +10,7 @@ class WaveLoader
 {
 private:
 	bool validateWaveFormat();
-	void parseChunks();
+	AudioData* parseChunks();
 	char checkHeader(char* header);
 	std::ifstream waveFile;
 	struct
@@ -20,6 +21,7 @@ private:
 		uint32_t byteRate;
 		uint16_t blockAlign;
 		uint16_t bitsPerSample;
+		uint32_t channelSize;
 	} ftmInfo;
 
 	uint16_t audioFormat;
@@ -28,6 +30,7 @@ private:
 	char* readAudioData(uint32_t chunkSize);
 
 public:
-	WaveLoader(std::string filePath);
+	WaveLoader();
+	AudioData* loadFile(std::string filePath);
 };
 

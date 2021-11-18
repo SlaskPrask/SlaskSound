@@ -18,32 +18,38 @@ char WaveLoader::checkHeader(char* header)
 
 }
 
-
-WaveLoader::WaveLoader(std::string filePath)
+AudioData* WaveLoader::loadFile(std::string filePath)
 {
-
-	//Start by loading the file data into a bit stream or something
-	
-	//start by opening the file
 	waveFile = std::ifstream(filePath, std::ios::binary);
 	if (waveFile.is_open())
 	{
 		if (validateWaveFormat())
 		{
-			parseChunks();
+			AudioData* data = parseChunks();
+			waveFile.close();
+			return data;
 		}
-		waveFile.close();
-		std::cout << "Audio Format: " << ftmInfo.audioFormat
-			<< "\nChannels: " << ftmInfo.numChannels
-			<< "\nSample Rate: " << ftmInfo.sampleRate
-			<< "\nByte Rate: " << ftmInfo.byteRate
-			<< "\nBlock Align: " << ftmInfo.blockAlign
-			<< "\nBits per Sample: " << ftmInfo.bitsPerSample << std::endl;
+		else
+		{
+			waveFile.close();
+		}
 	}
-	else
-	{
-		std::cout << "Failed to load file: " << filePath << std::endl;
-	}
+
+	std::cout << "Failed to load file: " << filePath << std::endl;
+	return nullptr;
+}
+
+
+WaveLoader::WaveLoader()
+{
+	audioFormat = 0;
+	ftmInfo.audioFormat = 0;
+	ftmInfo.numChannels = 0;
+	ftmInfo.sampleRate = 0;
+	ftmInfo.byteRate = 0;
+	ftmInfo.blockAlign = 0;
+	ftmInfo.bitsPerSample = 0;
+	ftmInfo.channelSize = 0;
 }
 
 bool WaveLoader::validateWaveFormat()
@@ -66,14 +72,14 @@ bool WaveLoader::validateWaveFormat()
 	return res;
 }
 
-void WaveLoader::parseChunks()
+AudioData* WaveLoader::parseChunks()
 {
 	//only chunks we care about are the fmt chunk and data chunk
 	//ignore the rest of the chunks
 	
 	char* chunkHeader = new char[4];
 	char* chunkSize = new char[4];
-	char* sampleData;
+	char* sampleData = nullptr;
 	uint64_t seekPosition;
 	uint32_t parsedSize;
 	char allDataGotten = 0;
@@ -118,15 +124,19 @@ void WaveLoader::parseChunks()
 	delete[] chunkHeader;
 
 	//should now create an audiodata file
+	if (sampleData != nullptr)
+		return new AudioData(sampleData, ftmInfo.numChannels, ftmInfo.sampleRate, ftmInfo.byteRate, ftmInfo.bitsPerSample, ftmInfo.channelSize);
+	else 
+		return nullptr;
 }
 
 bool WaveLoader::parseFtmInfo(uint32_t chunkSize)
 {
 	waveFile.read((char*)&ftmInfo, sizeof(ftmInfo));
-	if (chunkSize != sizeof(ftmInfo))
+	if (chunkSize != 16)
 	{
 		//we might need to parse a fact chunk later
-		waveFile.seekg((uint64_t)waveFile.tellg() + (chunkSize - sizeof(ftmInfo)));
+		waveFile.seekg((uint64_t)waveFile.tellg() + (chunkSize - 16));
 		return true;
 	}
 	return false;
@@ -136,6 +146,7 @@ char* WaveLoader::readAudioData(uint32_t chunkSize)
 {
 	char* audioData = new char[chunkSize];
 	uint32_t sizePerChannel = chunkSize / ftmInfo.numChannels;
+	ftmInfo.channelSize = sizePerChannel;
 	uint32_t* channelStartIndex = new uint32_t[ftmInfo.numChannels];
 
 	for (uint16_t i = 0; i < ftmInfo.numChannels; i++)

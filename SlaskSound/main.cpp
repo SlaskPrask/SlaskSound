@@ -1,8 +1,9 @@
 #include <iostream>
-#include "WaveLoader.h"
+#include "AudioLoader.h"
 
 int main()
 {
-	WaveLoader("MyBlobHurts_FullMix.wav");
+	AudioLoader loader;
+	loader.loadFile("MyBlobHurts_FullMix.wav");
 	return 0;
 }
