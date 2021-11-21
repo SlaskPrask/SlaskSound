@@ -6,6 +6,15 @@ class AudioData
 private:
 	struct
 	{
+		/*
+			NumberOfChannels	uint16
+			SampleRate			uint32
+			ByteRate			uint16
+			BitSize				uint16
+			DataPerChannel		uint32
+			Data				DataPerChannel * NumberOfChannels
+		*/
+
 		uint16_t numChannels;
 		uint32_t sampleRate;
 		uint16_t byteRate;
