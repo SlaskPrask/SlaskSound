@@ -13,6 +13,7 @@ private:
 	AudioData* parseChunks();
 	char checkHeader(char* header);
 	std::ifstream waveFile;
+	FormatInfo fmtInfo;
 	struct
 	{
 		uint16_t audioFormat;
@@ -21,10 +22,7 @@ private:
 		uint32_t byteRate;
 		uint16_t blockAlign;
 		uint16_t bitsPerSample;
-		uint32_t channelSize;
-	} ftmInfo;
-
-	uint16_t audioFormat;
+	} fmtBuffer;
 	
 	bool parseFtmInfo(uint32_t chunkSize);
 	char* readAudioData(uint32_t chunkSize);

@@ -1,26 +1,48 @@
 #include <iostream>
 #include <fstream>
 #pragma once
+
+struct FormatInfo
+{
+	/*
+		FormatTag			uint16
+		NumberOfChannels	uint16
+		SampleRate			uint32
+		BitsPerSample		uint16
+		BlockAllign			uint16
+		DataSize			uint32
+	*/
+	uint16_t formatTag;
+	uint16_t numChannels;
+	uint32_t sampleRate;
+	uint16_t bitsPerSample;
+	uint16_t blockAllign;
+	uint32_t dataSize;
+	inline bool operator==(const FormatInfo& lhs)
+	{
+		return lhs.formatTag == formatTag &&
+			lhs.numChannels == numChannels &&
+			lhs.sampleRate == sampleRate &&
+			lhs.bitsPerSample == bitsPerSample &&
+			lhs.blockAllign == blockAllign;
+	}
+};
+
 class AudioData
 {
 private:
 	struct
 	{
 		/*
+			FormatTag			uint16
 			NumberOfChannels	uint16
 			SampleRate			uint32
-			ByteRate			uint16
-			BitSize				uint16
-			DataPerChannel		uint32
-			Data				DataPerChannel * NumberOfChannels
+			BitsPerSample		uint16
+			BlockAllign			uint16
+			DataSize			uint32
+			SampleData			char * DataSize
 		*/
-
-		uint16_t numChannels;
-		uint32_t sampleRate;
-		uint16_t byteRate;
-		uint16_t bitSize;
-		uint32_t channelSize;
-
+		FormatInfo fmtInfo;		
 		char* sampleData;
 	} fileData;
 
@@ -32,9 +54,7 @@ public:
 	bool validate();
 	bool compare(AudioData* other);
 
-	AudioData(char* samples, uint16_t numChannels, 
-		uint32_t sampleRate, uint16_t byteRate, 
-		uint16_t bitSize, uint32_t channelSize);
+	AudioData(FormatInfo fmt, char* samples);
 	bool saveAsSGAF(std::string path);
 	AudioData(std::string path);
 	AudioData();

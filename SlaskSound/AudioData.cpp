@@ -2,11 +2,12 @@
 
 void AudioData::printInfo()
 {
-	std::cout << "Number of Channels: " << fileData.numChannels << std::endl <<
-		"Sample Rate: " << fileData.sampleRate << std::endl <<
-		"Byte Rate: " << fileData.byteRate << std::endl <<
-		"Bit Size: " << fileData.bitSize << std::endl <<
-		"Data per Channel: " << fileData.channelSize << std::endl;
+	std::cout << "Format Tag: " << fileData.fmtInfo.formatTag << std::endl << 
+		"Number of Channels: " << fileData.fmtInfo.numChannels << std::endl <<
+		"Sample Rate: " << fileData.fmtInfo.sampleRate << std::endl <<
+		"Bits per Sample: " << fileData.fmtInfo.bitsPerSample << std::endl <<
+		"Block Allign: " << fileData.fmtInfo.blockAllign << std::endl <<
+		"Data Size: " << fileData.fmtInfo.dataSize << std::endl;
 }
 
 bool AudioData::validate()
@@ -16,14 +17,9 @@ bool AudioData::validate()
 
 bool AudioData::compare(AudioData* other)
 {
-	if (other->fileData.numChannels == fileData.numChannels &&
-		other->fileData.sampleRate == fileData.sampleRate &&
-		other->fileData.byteRate == fileData.byteRate &&
-		other->fileData.bitSize == fileData.bitSize &&
-		other->fileData.channelSize == fileData.channelSize)
+	if (other->fileData.fmtInfo == fileData.fmtInfo)
 	{
-		uint32_t size = fileData.numChannels * fileData.channelSize;
-		for (uint32_t i = 0; i < size; i++)
+		for (uint32_t i = 0; i < fileData.fmtInfo.dataSize; i++)
 		{
 			if (other->fileData.sampleData[i] != fileData.sampleData[i])
 			{
@@ -35,16 +31,10 @@ bool AudioData::compare(AudioData* other)
 	return false;
 }
 
-AudioData::AudioData(char* samples, uint16_t numChannels,
-	uint32_t sampleRate, uint16_t byteRate, 
-	uint16_t bitSize, uint32_t channelSize)
+AudioData::AudioData(FormatInfo fmtInfo, char* samples)
 {
+	fileData.fmtInfo = fmtInfo;
 	fileData.sampleData = samples;
-	fileData.numChannels = numChannels;
-	fileData.sampleRate = sampleRate;
-	fileData.byteRate = byteRate;
-	fileData.bitSize = bitSize;
-	fileData.channelSize = channelSize;
 }
 
 bool AudioData::saveAsSGAF(std::string path)
@@ -67,23 +57,18 @@ bool AudioData::writeData(std::ofstream& out)
 {
 	try
 	{
-		uint32_t dataSize = fileData.numChannels * fileData.channelSize;
 		//order of data here is important
 		/*
+			FormatTag			uint16
 			NumberOfChannels	uint16
 			SampleRate			uint32
-			ByteRate			uint16
 			BitSize				uint16
-			DataPerChannel		uint32
-			Data				DataPerChannel * NumberOfChannels
+			BlockAllign			uint16
+			DataSize			uint32
+			Data				?
 		*/
-		out.write(reinterpret_cast<char*>(&fileData.numChannels), sizeof(uint16_t));
-		out.write(reinterpret_cast<char*>(&fileData.sampleRate), sizeof(uint32_t));
-		out.write(reinterpret_cast<char*>(&fileData.byteRate), sizeof(uint16_t));
-		out.write(reinterpret_cast<char*>(&fileData.bitSize), sizeof(uint16_t));
-		out.write(reinterpret_cast<char*>(&fileData.channelSize), sizeof(uint32_t));
-
-		out.write(fileData.sampleData, sizeof(char) * dataSize);
+		out.write(reinterpret_cast<char*>(&fileData.fmtInfo), sizeof(FormatInfo));
+		out.write(fileData.sampleData, sizeof(char) * fileData.fmtInfo.dataSize);
 		return true;
 	}
 	catch (const std::exception& e)
@@ -98,23 +83,19 @@ bool AudioData::readData(std::ifstream& in)
 	try
 	{
 		//order of data here is important
-		/*
+/*
+			FormatTag			uint16
 			NumberOfChannels	uint16
 			SampleRate			uint32
-			ByteRate			uint16
 			BitSize				uint16
-			DataPerChannel		uint32
-			Data				DataPerChannel * NumberOfChannels
+			BlockAllign			uint16
+			DataSize			uint32
+			Data				DataSize (char*)
 		*/
-		in.read(reinterpret_cast<char*>(&fileData.numChannels), sizeof(uint16_t));
-		in.read(reinterpret_cast<char*>(&fileData.sampleRate), sizeof(uint32_t));
-		in.read(reinterpret_cast<char*>(&fileData.byteRate), sizeof(uint16_t));
-		in.read(reinterpret_cast<char*>(&fileData.bitSize), sizeof(uint16_t));
-		in.read(reinterpret_cast<char*>(&fileData.channelSize), sizeof(uint32_t));
-
-		uint32_t dataSize = fileData.numChannels * fileData.channelSize;
-		fileData.sampleData = new char[dataSize];
-		in.read(fileData.sampleData, sizeof(char) * dataSize);
+		in.read(reinterpret_cast<char*>(&fileData.fmtInfo), sizeof(FormatInfo));
+		
+		fileData.sampleData = new char[fileData.fmtInfo.dataSize];
+		in.read(fileData.sampleData, sizeof(char) * fileData.fmtInfo.dataSize);
 
 		return true;
 	}
@@ -128,6 +109,7 @@ bool AudioData::readData(std::ifstream& in)
 AudioData::AudioData()
 {
 	//Couldn't create valid file
+	fileData = { 0 };
 	fileData.sampleData = nullptr;
 }
 
