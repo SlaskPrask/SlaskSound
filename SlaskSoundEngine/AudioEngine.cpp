@@ -2,6 +2,7 @@
 
 AudioEngine::AudioEngine()
 {
+	errFunc = nullptr;
 #ifdef _WIN32
 	pXAudio2 = nullptr;
 	pMasterVoice = nullptr;
@@ -26,43 +27,60 @@ AudioEngine::~AudioEngine()
 }
 
 #ifdef _WIN32
-HRESULT AudioEngine::initialize()
+bool AudioEngine::initialize()
 {
 	//initialize xaudio2
 	HRESULT hr;
 
 	if (FAILED(hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED)))
-		return hr;
+	{
+		if (hr != RPC_E_CHANGED_MODE)
+		{		
+			logError("Initializing audio thread", parseError(hr));
+			return false;
+		}
+	}
 	
 	if (FAILED(hr = XAudio2Create(&pXAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR)))
-		return hr;
+	{
+		logError("Creating XAudio", parseError(hr));
+		return false;
+	}
 
 	if (FAILED(hr = pXAudio2->CreateMasteringVoice(&pMasterVoice)))
-		return hr;
+	{
+		logError("Creating master voice", parseError(hr));
+		return false;
+	}
 
-	return S_OK;
+	return true;
 }
 #endif
 
-HRESULT AudioEngine::loadData(std::string path)
+bool AudioEngine::loadData(std::string path)
 {
 	std::wstring str(path.begin(), path.end());
 	HANDLE hFile = CreateFile(str.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
-		return S_FALSE;
+		logError("Invalid file handle", parseError(HRESULT_FROM_WIN32(GetLastError())));
+		return false;
 	}
 
 	FormatInfo f = { 0 };
 
 	if (INVALID_SET_FILE_POINTER == SetFilePointer(hFile, 0, NULL, FILE_BEGIN))
-		return HRESULT_FROM_WIN32(GetLastError());
+	{
+		logError("Setting file pointer for FMT", parseError(HRESULT_FROM_WIN32(GetLastError())));
+		return false;
+	}
 
 	DWORD dwRead;
 	if (0 == ReadFile(hFile, &f, sizeof(f), &dwRead, NULL))
 	{
-		return HRESULT_FROM_WIN32(GetLastError());
+		logError("Reading FMT", parseError(HRESULT_FROM_WIN32(GetLastError())));
+		return false;
 	}
 
 	/*std::cout << "Format Tag: " << f.formatTag << std::endl <<
@@ -86,41 +104,49 @@ HRESULT AudioEngine::loadData(std::string path)
 	BYTE* pDataBuffer = new BYTE[f.dataSize];
 
 	if (INVALID_SET_FILE_POINTER == SetFilePointer(hFile, dwRead, NULL, FILE_BEGIN))
-		return HRESULT_FROM_WIN32(GetLastError());
+	{
+		logError("Setting file pointer for data", parseError(HRESULT_FROM_WIN32(GetLastError())));
+		return false;
+	}
 
 	if (0 == ReadFile(hFile, pDataBuffer, f.dataSize, &dwRead, NULL))
 	{
-		return HRESULT_FROM_WIN32(GetLastError());
+		logError("Reading Data", parseError(HRESULT_FROM_WIN32(GetLastError())));
+		return false;
 	}
 
 	buffer.AudioBytes = f.dataSize;
 	buffer.pAudioData = pDataBuffer;
 	buffer.Flags = XAUDIO2_END_OF_STREAM;
-	return S_OK;
+	return true;
 }
 
-HRESULT AudioEngine::playAudio()
+bool AudioEngine::playAudio()
 {
 	HRESULT hr;
 	if (FAILED(hr = pXAudio2->CreateSourceVoice(&pSourceVoice, (WAVEFORMATEX*)&wfx)))
 	{
-		return hr;
+		logError("Creating Source Voice", parseError(hr));
+		return false;
 	}
 
 	if (FAILED(hr = pSourceVoice->SubmitSourceBuffer(&buffer)))
 	{
-		return hr;
+		logError("Submitting buffer", parseError(hr));
+		return false;
 	}
 
 	if (FAILED(hr = pSourceVoice->Start(0)))
 	{
-		return hr;
+		logError("Starting audio", parseError(hr));
+		return false;
 	}
+	
+	return true;
 
-	return S_OK;
 }
 
-HRESULT AudioEngine::stopAudio()
+bool AudioEngine::stopAudio()
 {
 	if (pSourceVoice != nullptr)
 	{
@@ -128,5 +154,23 @@ HRESULT AudioEngine::stopAudio()
 		pSourceVoice->DestroyVoice();
 		pSourceVoice = nullptr;
 	}
-	return S_OK;
+	return true;
+}
+
+void AudioEngine::registerErrorLogger(std::function<void(const char*)> callback)
+{
+	errFunc = callback;
+}
+
+void AudioEngine::logError(std::string place, std::string error)
+{
+	if (errFunc != nullptr)
+	{
+		errFunc((place + ": " + error).c_str());
+	}
+}
+
+std::string AudioEngine::parseError(HRESULT hr)
+{
+	return std::system_category().message(hr);
 }

@@ -1,8 +1,10 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <functional>
 #ifdef _WIN32
 #include <xaudio2.h>
+#include <system_error>
 #endif
 
 struct FormatInfo
@@ -44,13 +46,17 @@ private:
 	WAVEFORMATEXTENSIBLE wfx;
 	XAUDIO2_BUFFER buffer;
 #endif
+
+	std::function<void(const char*)> errFunc;
+	std::string parseError(HRESULT hr);
 public:
 	AudioEngine();
 	~AudioEngine();
-	HRESULT initialize();
-	HRESULT loadData(std::string path);
-	HRESULT playAudio();
-	HRESULT stopAudio();
-
+	bool initialize();
+	bool loadData(std::string path);
+	bool playAudio();
+	bool stopAudio();
+	void registerErrorLogger(std::function<void (const char*)> callback);
+	void logError(std::string place, std::string errorMsg);
 };
 

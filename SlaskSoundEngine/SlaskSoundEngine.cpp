@@ -22,3 +22,8 @@ void StopAudio()
 {
 	engine.stopAudio();
 }
+
+void RegisterErrorLogger(Callback func)
+{
+	engine.registerErrorLogger(func);
+}
