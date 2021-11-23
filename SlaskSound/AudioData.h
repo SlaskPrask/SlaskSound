@@ -24,7 +24,8 @@ struct FormatInfo
 			lhs.numChannels == numChannels &&
 			lhs.sampleRate == sampleRate &&
 			lhs.bitsPerSample == bitsPerSample &&
-			lhs.blockAllign == blockAllign;
+			lhs.blockAllign == blockAllign &&
+			lhs.dataSize == dataSize;
 	}
 };
 

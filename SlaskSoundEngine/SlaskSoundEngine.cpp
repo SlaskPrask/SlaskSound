@@ -1,29 +1,38 @@
 #include "AudioEngine.h"
 #include "SlaskSoundEngine.h"
 
-static AudioEngine engine;
+AudioEngine* engine = nullptr;
 
 void InitializeEngine()
 {
-	engine.initialize();
+	engine->initialize();
+}
+
+void DestroyEngine()
+{
+	if (engine != nullptr)
+	{
+		delete engine;
+	}
+	engine = nullptr;
 }
 
 void LoadSGAF(const char* path)
 {
-	engine.loadData(path);
+	engine->loadData(path);
 }
 
-void PlayAudio()
+void PlayAudio(int index)
 {
-	engine.playAudio();
+	engine->playAudio(index);
 }
 
-void StopAudio()
+void StopAudio(int index)
 {
-	engine.stopAudio();
+	engine->stopAudio(index);
 }
 
 void RegisterErrorLogger(Callback func)
 {
-	engine.registerErrorLogger(func);
+	Logger::registerLogCallback(func);
 }
